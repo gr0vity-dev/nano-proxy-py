@@ -21,19 +21,19 @@ config_manager = ConfigManager(settings)
 
 def get_auth_strategy(auth_header: str) -> AuthStrategy:
     if auth_header.startswith('Bearer '):
-        return BearerAuthStrategy()
+        return BearerAuthStrategy(auth_header)
     elif auth_header.startswith('Basic '):
-        return BasicAuthStrategy()
+        return BasicAuthStrategy(auth_header)
     else:
-        return UnAuthStrategy()
+        return UnAuthStrategy("")
 
 
 def get_authorised_details():
     auth_header = request.headers.get('Authorization', '')
     strategy = get_auth_strategy(auth_header)
-    credentials = strategy.extract_credentials(auth_header)
+    credentials = strategy.extract_credentials()
     if not strategy.is_authorized(credentials):
-        abort(403, description="Unauthorized or Command not allowed")
+        abort(403, description="Unauthorized")
 
     return strategy, credentials
 
@@ -75,7 +75,8 @@ def verify_token_and_command(func):
     def wrapper(*args, **kwargs):
         json_data = request.get_json(force=True) or {}
         command = json_data.get('action')
-        prepare_command(command, json_data)
+        if not prepare_command(command, json_data):
+            abort(403, description="Command not allowed")
         return func(*args, **kwargs)
     return wrapper
 

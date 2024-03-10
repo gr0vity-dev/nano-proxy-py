@@ -4,7 +4,11 @@ import base64
 
 
 class AuthStrategy:
-    def extract_credentials(self, auth_header: str) -> Tuple[Optional[str], Optional[str]]:
+
+    def __init__(self, auth_header):
+        self.auth_header = auth_header
+
+    def extract_credentials(self) -> Tuple[Optional[str], Optional[str]]:
         raise NotImplementedError
 
     def is_authorized(self, credentials: Tuple[str, str]) -> bool:
@@ -16,14 +20,14 @@ class AuthStrategy:
 
 
 class UnAuthStrategy(AuthStrategy):
-    def extract_credentials(self, auth_header: str) -> Tuple[Optional[str], Optional[str]]:
+    def extract_credentials(self) -> Tuple[Optional[str], Optional[str]]:
         return ("public", "")
 
 
 class BearerAuthStrategy(AuthStrategy):
-    def extract_credentials(self, auth_header: str) -> Tuple[Optional[str], Optional[str]]:
-        if auth_header.startswith('Bearer '):
-            token = auth_header.split(' ')[1]
+    def extract_credentials(self) -> Tuple[Optional[str], Optional[str]]:
+        if self.auth_header.startswith('Bearer '):
+            token = self.auth_header.split(' ')[1]
             _, credentials = self.get_credentials_from_token(token)
             return credentials
         return (None, None)
@@ -36,9 +40,9 @@ class BearerAuthStrategy(AuthStrategy):
 
 
 class BasicAuthStrategy(AuthStrategy):
-    def extract_credentials(self, auth_header: str) -> Tuple[Optional[str], Optional[str]]:
-        if auth_header.startswith('Basic '):
+    def extract_credentials(self) -> Tuple[Optional[str], Optional[str]]:
+        if self.auth_header.startswith('Basic '):
             decoded = base64.b64decode(
-                auth_header.split(' ')[1]).decode('utf-8')
+                self.auth_header.split(' ')[1]).decode('utf-8')
             return tuple(decoded.split(':', 1))
         return (None, None)

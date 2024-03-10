@@ -1,0 +1,26 @@
+endpoint = "http://nanolive:7076"
+
+TOKENS = {
+    "public": "",
+    "user1": "actual_secret_token",
+}
+
+COMMANDS = {
+    "public": {
+        "rate_limit": "10 per minute",
+        "commands": [
+            "block_count",
+            "telemetry"
+        ]
+    },
+    "user1": {
+        "rate_limit": "1/second;50/minute;",
+        "commands": [
+            "block_count",
+            "receivable"
+        ],
+        "forced_values": {
+            "receivable": {"threshold": "500000000000000000000000"}
+        }
+    }
+}

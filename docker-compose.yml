@@ -1,0 +1,48 @@
+version: '3.8'
+services:
+
+  ##################################################
+  ## This shows the config of a dockerized nano_node  
+
+  # nanolive:
+  #   command: nano_node daemon --network=live -l 
+  #   image: nanocurrency/nano:V26.1
+  #   container_name: nanolive
+  #   restart: unless-stopped
+  #   ports:
+  #    - 7075:7075
+  #    - '127.0.0.1:7076:7076'
+  #    - '127.0.0.1:7078:7078'
+  #   volumes:
+  #   - ./Nano:/root/Nano
+  #   networks:
+  #   - nano-live
+  
+  ##################################################
+
+
+  nanolive_proxy:
+    build:
+      context: ./nano-proxy
+    container_name: nanolive_proxy
+    ports:
+      - "127.0.0.1:5001:5000"
+    environment:
+      - MEMCACHED_URI=memcached://nanolive_proxy_memcached:11211
+    volumes:
+      - ./Proxy:/usr/src/app
+    depends_on:
+      - nanolive_proxy_memcached
+    networks:
+    - nano-live
+  
+  nanolive_proxy_memcached:
+    image: memcached:latest
+    container_name: nanolive_proxy_memcached
+    networks:
+    - nano-live
+
+
+networks:
+  nano-live:
+    driver: bridge

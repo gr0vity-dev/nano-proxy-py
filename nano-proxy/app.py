@@ -28,12 +28,6 @@ def get_auth_strategy(auth_header: str) -> AuthStrategy:
         return UnAuthStrategy()
 
 
-def handle_authorization_and_rate_limiting():
-    strategy, credentials = get_authorised_details()
-    rate_limit = strategy.get_rate_limit(credentials)
-    return rate_limit
-
-
 def get_authorised_details():
     auth_header = request.headers.get('Authorization', '')
     strategy = get_auth_strategy(auth_header)
@@ -42,6 +36,12 @@ def get_authorised_details():
         abort(403, description="Unauthorized or Command not allowed")
 
     return strategy, credentials
+
+
+def handle_authorization_and_rate_limiting():
+    strategy, credentials = get_authorised_details()
+    rate_limit = strategy.get_rate_limit(credentials)
+    return rate_limit
 
 
 def prepare_command(command: Optional[str], json_data: Dict[str, Any]) -> bool:
@@ -55,40 +55,7 @@ def prepare_command(command: Optional[str], json_data: Dict[str, Any]) -> bool:
     for key, value in forced_values.items():
         json_data[key] = value
     return command in allowed_commands
-    # return command in config_manager.commands_config.get('public', {}).get("commands", [])
 
-# def get_rate_limit_from_token(token: str) -> str:
-#     for user, user_token in config_manager.tokens_config.items():
-#         if user_token == token:
-#             user_config = config_manager.commands_config.get(user)
-#             if user_config:
-#                 return user_config.get("rate_limit", "1 per second")
-#     return config_manager.commands_config.get("public", {}).get("rate_limit", "1 per second")
-
-
-# def is_authorized(token: str, command: Optional[str], json_data: Dict[str, Any]) -> bool:
-#     user = next((user for user, user_token in config_manager.tokens_config.items(
-#     ) if user_token == token), None)
-#     if user:
-#         allowed_commands = config_manager.commands_config.get(
-#             user, {}).get("commands", [])
-#         forced_values = config_manager.commands_config.get(
-#             user, {}).get("forced_values", {}).get(command, {})
-#         for key, value in forced_values.items():
-#             json_data[key] = value
-#         return command in allowed_commands
-#     return command in config_manager.commands_config.get('public', {}).get("commands", [])
-
-
-# def rate_limit_from_header():
-#     """Extracts the rate limit from the configuration based on the Authorization header."""
-#     auth_header = request.headers.get('Authorization')
-#     token = ""
-#     if auth_header and auth_header.startswith('Bearer '):
-#         token = auth_header.split(' ')[1]
-
-#     rate_limit = get_rate_limit_from_token(token)
-#     return rate_limit
 
 # ----------
 # Decorators

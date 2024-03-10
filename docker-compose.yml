@@ -30,7 +30,7 @@ services:
     environment:
       - MEMCACHED_URI=memcached://nanolive_proxy_memcached:11211
     volumes:
-      - ./Proxy:/usr/src/app
+      - ./nano-proxy:/usr/src/app
     depends_on:
       - nanolive_proxy_memcached
     networks:

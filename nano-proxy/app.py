@@ -8,6 +8,12 @@ from os import getenv
 from src.authentication import AuthStrategy, BasicAuthStrategy, BearerAuthStrategy, UnAuthStrategy
 import settings
 import requests
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO,
+                    format='[%(asctime)s] [%(levelname)s] %(message)s')
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 limiter = Limiter(app=app, key_func=get_remote_address, storage_uri=getenv(
@@ -17,6 +23,27 @@ config_manager = ConfigManager(settings)
 # ----------------
 # Helper Functions
 # ----------------
+
+
+def log_rpc_request(request_body):
+    log_disabled = getenv('LOG_DISABLED', 'false').lower() in ['true', '1']
+
+    # Return early if logging is explicitly disabled
+    if log_disabled:
+        return
+
+    # Determine whether to log request headers and body based on environment variables
+    log_request_headers = getenv(
+        'LOG_REQUEST_HEADERS', 'false').lower() in ['true', '1']
+    log_request_body = getenv('LOG_REQUEST_BODY', 'false').lower() in [
+        'true', '1']
+    origin = request.headers.get('X-Forwarded-For', request.remote_addr)
+    # Serialize headers for logging if enabled
+    headers = ', '.join([f"{k}: {v}" for k, v in request.headers]
+                        ) if log_request_headers else "Headers logging disabled"
+    body_to_log = request_body if log_request_body else "Body logging disabled"
+    logger.info(
+        f"Origin: |{origin}|, Body: |{body_to_log}|, Headers: |{headers}|")
 
 
 def get_auth_strategy(auth_header: str) -> AuthStrategy:
@@ -90,9 +117,11 @@ def verify_token_and_command(func):
 @verify_token_and_command
 @limiter.limit(handle_authorization_and_rate_limiting)
 def rpc_proxy():
-    json_data = request.get_json(force=True)
+    request_body = request.get_json(force=True)
+    log_rpc_request(request_body)
+
     try:
-        response = requests.post(config_manager.endpoint, json=json_data)
+        response = requests.post(config_manager.endpoint, json=request_body)
         return jsonify(response.json()), response.status_code
     except requests.RequestException as e:
         return jsonify({'error': 'Failed to forward request', 'message': str(e)}), 502

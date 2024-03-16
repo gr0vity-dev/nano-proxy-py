@@ -29,6 +29,9 @@ services:
       - "127.0.0.1:5001:5000"
     environment:
       - MEMCACHED_URI=memcached://nanolive_proxy_memcached:11211
+      - LOG_REQUEST_HEADERS=true
+      - LOG_REQUEST_BODY=true
+      - LOG_DISABLED=false
     volumes:
       - ./nano-proxy:/usr/src/app
     depends_on:

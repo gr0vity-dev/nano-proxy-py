@@ -25,7 +25,7 @@ config_manager = ConfigManager(settings)
 # ----------------
 
 
-def log_rpc_request(request_body):
+def log_rpc_request(user, request_body):
     log_disabled = getenv('LOG_DISABLED', 'false').lower() in ['true', '1']
 
     # Return early if logging is explicitly disabled
@@ -38,12 +38,13 @@ def log_rpc_request(request_body):
     log_request_body = getenv('LOG_REQUEST_BODY', 'false').lower() in [
         'true', '1']
     origin = request.headers.get('X-Forwarded-For', request.remote_addr)
-    # Serialize headers for logging if enabled
-    headers = ', '.join([f"{k}: {v}" for k, v in request.headers]
-                        ) if log_request_headers else "Headers logging disabled"
-    body_to_log = request_body if log_request_body else "Body logging disabled"
-    logger.info(
-        f"Origin: |{origin}|, Body: |{body_to_log}|, Headers: |{headers}|")
+    # Exclude the Authorization header from logging
+    headers_to_log = {k: v for k, v in request.headers.items()
+                      if k.lower() != 'authorization'}
+    headers_log = ', '.join(
+        [f"{k}: {v}" for k, v in headers_to_log.items()]) if log_request_headers else ""
+    body_log = request_body if log_request_body else ""
+    logger.info(f"|{user}| |{origin}| |{body_log}| |{headers_log}|")
 
 
 def get_auth_strategy(auth_header: str) -> AuthStrategy:
@@ -71,16 +72,18 @@ def handle_authorization_and_rate_limiting():
     return rate_limit
 
 
-def prepare_command(command: Optional[str], json_data: Dict[str, Any]) -> bool:
+def prepare_command(request_body: Dict[str, Any]) -> bool:
     _, credentials = get_authorised_details()
     user = credentials[0]
+    log_rpc_request(user, request_body)
 
+    command = request_body.get('action')
     allowed_commands = config_manager.commands_config.get(
         user, {}).get("commands", [])
     forced_values = config_manager.commands_config.get(
         user, {}).get("forced_values", {}).get(command, {})
     for key, value in forced_values.items():
-        json_data[key] = value
+        request_body[key] = value
     return command in allowed_commands
 
 
@@ -100,9 +103,8 @@ def auto_reload_config(func):
 def verify_token_and_command(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
-        json_data = request.get_json(force=True) or {}
-        command = json_data.get('action')
-        if not prepare_command(command, json_data):
+        request_body = request.get_json(force=True) or {}
+        if not prepare_command(request_body):
             abort(403, description="Command not allowed")
         return func(*args, **kwargs)
     return wrapper
@@ -118,8 +120,6 @@ def verify_token_and_command(func):
 @limiter.limit(handle_authorization_and_rate_limiting)
 def rpc_proxy():
     request_body = request.get_json(force=True)
-    log_rpc_request(request_body)
-
     try:
         response = requests.post(config_manager.endpoint, json=request_body)
         return jsonify(response.json()), response.status_code
